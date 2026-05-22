@@ -54,7 +54,7 @@ const AVATARS: AvatarStyle[] = [
 const CHAT_RADIUS = 3.3;
 const CAMERA_DEAD_ZONE_X = 3.8;
 const CAMERA_DEAD_ZONE_Z = 2.6;
-// Tuned alongside local movement speed for responsive follow without jitter.
+// Tuned to track the faster MOVE_SPEED value in virtual-office.tsx without jitter.
 const CAMERA_FOLLOW_SPEED = 5.6;
 const CAMERA_RESPAWN_THRESHOLD = 3.5;
 const CAMERA_BOUNDARY_OFFSET = 1.2;

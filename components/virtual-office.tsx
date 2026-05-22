@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { FormEvent, useCallback, useMemo, useEffect, useRef, useState } from "react";
+import { FormEvent, type MutableRefObject, useCallback, useMemo, useEffect, useRef, useState } from "react";
 import styles from "./virtual-office.module.css";
 
 type AvatarKey = "mint" | "sunset" | "violet";
@@ -89,6 +89,11 @@ function clamp(value: number, minimum: number, maximum: number) {
 
 function distanceBetween(first: Position, second: Position) {
   return Math.hypot(first.x - second.x, first.z - second.z);
+}
+
+function resetVelocity(velocityXRef: MutableRefObject<number>, velocityZRef: MutableRefObject<number>) {
+  velocityXRef.current = 0;
+  velocityZRef.current = 0;
 }
 
 function hashString(value: string) {
@@ -408,7 +413,7 @@ export default function VirtualOffice() {
 
       const hasIntent = horizontalIntent !== 0 || verticalIntent !== 0;
       if (hasIntent) {
-        const magnitude = Math.hypot(horizontalIntent, verticalIntent) || 1;
+        const magnitude = Math.hypot(horizontalIntent, verticalIntent);
         horizontalIntent /= magnitude;
         verticalIntent /= magnitude;
       }
@@ -451,8 +456,7 @@ export default function VirtualOffice() {
       window.removeEventListener("keyup", handleKeyUp);
       window.cancelAnimationFrame(animationFrame);
       activeKeys.clear();
-      velocityXRef.current = 0;
-      velocityZRef.current = 0;
+      resetVelocity(velocityXRef, velocityZRef);
     };
   }, [handleActionChange, profile]);
 
