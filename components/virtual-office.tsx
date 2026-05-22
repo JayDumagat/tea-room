@@ -236,6 +236,19 @@ export default function VirtualOffice() {
     })();
   }, [sessionId]);
 
+  const handleActionChange = useCallback(
+    (nextAction: ActionState) => {
+      setAction(nextAction);
+
+      if (!profile) {
+        return;
+      }
+
+      updatePresence(profile, position, message, nextAction);
+    },
+    [message, position, profile, updatePresence],
+  );
+
   useEffect(() => {
     heartbeatRef.current = { profile, position, message, action };
   }, [action, message, position, profile]);
@@ -300,8 +313,7 @@ export default function VirtualOffice() {
         const nextAction = ACTIONS[index]?.id;
 
         if (nextAction) {
-          setAction(nextAction);
-          updatePresence(profile, heartbeatRef.current.position, heartbeatRef.current.message, nextAction);
+          handleActionChange(nextAction);
           event.preventDefault();
         }
 
@@ -369,7 +381,7 @@ export default function VirtualOffice() {
       window.cancelAnimationFrame(animationFrame);
       activeKeys.clear();
     };
-  }, [profile, updatePresence]);
+  }, [handleActionChange, profile]);
 
   useEffect(() => {
     return () => {
@@ -556,12 +568,7 @@ export default function VirtualOffice() {
                 key={nextAction.id}
                 className={`${styles.avatarCard} ${action === nextAction.id ? styles.avatarCardActive : ""}`}
                 disabled={!profile}
-                onClick={() => {
-                  setAction(nextAction.id);
-                  if (profile) {
-                    updatePresence(profile, position, message, nextAction.id);
-                  }
-                }}
+                onClick={() => handleActionChange(nextAction.id)}
                 type="button"
               >
                 <strong>{nextAction.label}</strong>

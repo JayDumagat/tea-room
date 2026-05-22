@@ -2,7 +2,7 @@
 
 import { Html } from "@react-three/drei";
 import { Canvas, useFrame } from "@react-three/fiber";
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 import styles from "./virtual-office.module.css";
 
 type AvatarKey = "mint" | "sunset" | "violet";
@@ -152,6 +152,15 @@ function OfficeFurniture() {
 
 function FollowCamera({ localPosition, roomLimit }: { localPosition: Position; roomLimit: number }) {
   const focusRef = useRef<Position>({ x: localPosition.x, z: localPosition.z });
+  const previousLocalRef = useRef<Position>(localPosition);
+
+  useEffect(() => {
+    const previous = previousLocalRef.current;
+    if (distanceBetween(previous, localPosition) > 3.5) {
+      focusRef.current = { x: localPosition.x, z: localPosition.z };
+    }
+    previousLocalRef.current = localPosition;
+  }, [localPosition]);
 
   useFrame(({ camera }, delta) => {
     const focus = focusRef.current;
