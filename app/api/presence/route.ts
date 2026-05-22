@@ -22,7 +22,6 @@ const PRESENCE_TTL_MS = 12000;
 const ROOM_LIMIT = 12;
 
 declare global {
-  // eslint-disable-next-line no-var
   var teaRoomPresence: Map<string, Map<string, Presence>> | undefined;
 }
 
