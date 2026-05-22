@@ -51,8 +51,9 @@ const AVATARS: AvatarStyle[] = [
 ];
 
 const CHAT_RADIUS = 3.3;
-const CAMERA_DEAD_ZONE = 2.2;
-const CAMERA_FOLLOW_SPEED = 5;
+const CAMERA_DEAD_ZONE_X = 3.8;
+const CAMERA_DEAD_ZONE_Z = 2.6;
+const CAMERA_FOLLOW_SPEED = 3.2;
 const CAMERA_RESPAWN_THRESHOLD = 3.5;
 const CAMERA_BOUNDARY_OFFSET = 1.2;
 const CAMERA_HEIGHT = 8.5;
@@ -171,12 +172,12 @@ function FollowCamera({ localPosition, roomLimit }: { localPosition: Position; r
     const deltaX = localPosition.x - focus.x;
     const deltaZ = localPosition.z - focus.z;
 
-    if (Math.abs(deltaX) > CAMERA_DEAD_ZONE) {
-      focus.x = localPosition.x - Math.sign(deltaX) * CAMERA_DEAD_ZONE;
+    if (Math.abs(deltaX) > CAMERA_DEAD_ZONE_X) {
+      focus.x = localPosition.x - Math.sign(deltaX) * CAMERA_DEAD_ZONE_X;
     }
 
-    if (Math.abs(deltaZ) > CAMERA_DEAD_ZONE) {
-      focus.z = localPosition.z - Math.sign(deltaZ) * CAMERA_DEAD_ZONE;
+    if (Math.abs(deltaZ) > CAMERA_DEAD_ZONE_Z) {
+      focus.z = localPosition.z - Math.sign(deltaZ) * CAMERA_DEAD_ZONE_Z;
     }
 
     focus.x = clamp(focus.x, -roomLimit + CAMERA_BOUNDARY_OFFSET, roomLimit - CAMERA_BOUNDARY_OFFSET);
