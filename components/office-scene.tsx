@@ -1,10 +1,12 @@
 "use client";
 
 import { Html } from "@react-three/drei";
-import { Canvas } from "@react-three/fiber";
+import { Canvas, useFrame } from "@react-three/fiber";
+import { useRef } from "react";
 import styles from "./virtual-office.module.css";
 
 type AvatarKey = "mint" | "sunset" | "violet";
+type ActionState = "stand" | "sit" | "lay";
 
 type Position = {
   x: number;
@@ -15,6 +17,7 @@ type Presence = {
   id: string;
   name: string;
   avatar: AvatarKey;
+  action: ActionState;
   message: string;
   position: Position;
 };
@@ -48,6 +51,12 @@ const AVATARS: AvatarStyle[] = [
 ];
 
 const CHAT_RADIUS = 3.3;
+const CAMERA_DEAD_ZONE = 2.2;
+const CAMERA_FOLLOW_SPEED = 5;
+
+function clamp(value: number, minimum: number, maximum: number) {
+  return Math.min(Math.max(value, minimum), maximum);
+}
 
 function distanceBetween(first: Position, second: Position) {
   return Math.hypot(first.x - second.x, first.z - second.z);
@@ -98,55 +107,92 @@ function Plant({ position }: { position: [number, number, number] }) {
 function OfficeFurniture() {
   return (
     <group>
-      <mesh receiveShadow position={[0, 2, -5.85]}>
-        <boxGeometry args={[12, 2.8, 0.3]} />
+      <mesh receiveShadow position={[0, 2, -10.2]}>
+        <boxGeometry args={[26, 2.8, 0.3]} />
         <meshStandardMaterial color="#1e293b" />
       </mesh>
-      <mesh receiveShadow position={[0, 2, 5.85]}>
-        <boxGeometry args={[12, 2.8, 0.3]} />
+      <mesh receiveShadow position={[0, 2, 10.2]}>
+        <boxGeometry args={[26, 2.8, 0.3]} />
         <meshStandardMaterial color="#1e293b" />
       </mesh>
-      <mesh receiveShadow position={[-5.85, 2, 0]}>
-        <boxGeometry args={[0.3, 2.8, 12]} />
+      <mesh receiveShadow position={[-13.2, 2, 0]}>
+        <boxGeometry args={[0.3, 2.8, 20.4]} />
         <meshStandardMaterial color="#1e293b" />
       </mesh>
-      <mesh receiveShadow position={[5.85, 2, 0]}>
-        <boxGeometry args={[0.3, 2.8, 12]} />
+      <mesh receiveShadow position={[13.2, 2, 0]}>
+        <boxGeometry args={[0.3, 2.8, 20.4]} />
         <meshStandardMaterial color="#1e293b" />
       </mesh>
 
-      <Desk position={[-2.5, 0, -2.4]} />
-      <Desk position={[2.5, 0, -2.4]} />
-      <Desk position={[-2.5, 0, 2.4]} />
-      <Desk position={[2.5, 0, 2.4]} />
+      <Desk position={[-7, 0, -3.6]} />
+      <Desk position={[-2.4, 0, -3.6]} />
+      <Desk position={[2.4, 0, -3.6]} />
+      <Desk position={[7, 0, -3.6]} />
+      <Desk position={[-7, 0, 3.6]} />
+      <Desk position={[-2.4, 0, 3.6]} />
+      <Desk position={[2.4, 0, 3.6]} />
+      <Desk position={[7, 0, 3.6]} />
 
       <mesh castShadow receiveShadow position={[0, 0.45, 0]}>
-        <boxGeometry args={[2.2, 0.18, 1.2]} />
+        <boxGeometry args={[3.2, 0.18, 1.4]} />
         <meshStandardMaterial color="#0f766e" />
       </mesh>
       <mesh castShadow receiveShadow position={[0, 0.24, 0]}>
-        <boxGeometry args={[2.5, 0.18, 1.5]} />
+        <boxGeometry args={[3.6, 0.18, 1.8]} />
         <meshStandardMaterial color="#134e4a" />
       </mesh>
 
-      <Plant position={[-4.5, 0, -4.3]} />
-      <Plant position={[4.5, 0, 4.3]} />
-      <Plant position={[4.5, 0, -4.3]} />
+      <Plant position={[-11, 0, -8]} />
+      <Plant position={[11, 0, -8]} />
+      <Plant position={[-11, 0, 8]} />
+      <Plant position={[11, 0, 8]} />
     </group>
   );
+}
+
+function FollowCamera({ localPosition, roomLimit }: { localPosition: Position; roomLimit: number }) {
+  const focusRef = useRef<Position>({ x: localPosition.x, z: localPosition.z });
+
+  useFrame(({ camera }, delta) => {
+    const focus = focusRef.current;
+    const deltaX = localPosition.x - focus.x;
+    const deltaZ = localPosition.z - focus.z;
+
+    if (Math.abs(deltaX) > CAMERA_DEAD_ZONE) {
+      focus.x = localPosition.x - Math.sign(deltaX) * CAMERA_DEAD_ZONE;
+    }
+
+    if (Math.abs(deltaZ) > CAMERA_DEAD_ZONE) {
+      focus.z = localPosition.z - Math.sign(deltaZ) * CAMERA_DEAD_ZONE;
+    }
+
+    focus.x = clamp(focus.x, -roomLimit + 1.2, roomLimit - 1.2);
+    focus.z = clamp(focus.z, -roomLimit + 1.2, roomLimit - 1.2);
+
+    const easing = Math.min(1, delta * CAMERA_FOLLOW_SPEED);
+    camera.position.x += (focus.x - camera.position.x) * easing;
+    camera.position.y += (8.5 - camera.position.y) * easing;
+    camera.position.z += (focus.z + 7.5 - camera.position.z) * easing;
+    camera.lookAt(focus.x, 0, focus.z);
+  });
+
+  return null;
 }
 
 export default function OfficeScene({
   players,
   localId,
   localPosition,
+  roomLimit,
 }: {
   players: Presence[];
   localId: string;
   localPosition: Position;
+  roomLimit: number;
 }) {
   return (
     <Canvas camera={{ position: [0, 8.5, 7.5], fov: 42 }} shadows>
+      <FollowCamera localPosition={localPosition} roomLimit={roomLimit} />
       <color attach="background" args={["#0f172a"]} />
       <ambientLight intensity={1.4} />
       <directionalLight
@@ -160,11 +206,11 @@ export default function OfficeScene({
 
       <group>
         <mesh receiveShadow rotation={[-Math.PI / 2, 0, 0]}>
-          <planeGeometry args={[16, 12]} />
+          <planeGeometry args={[28, 22]} />
           <meshStandardMaterial color="#cbd5e1" roughness={0.85} />
         </mesh>
         <mesh receiveShadow position={[0, -0.05, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-          <planeGeometry args={[6.8, 4.4]} />
+          <planeGeometry args={[9.5, 5.5]} />
           <meshStandardMaterial color="#e0f2fe" />
         </mesh>
         <OfficeFurniture />
@@ -173,28 +219,35 @@ export default function OfficeScene({
           const avatar = AVATARS.find(({ id }) => id === player.avatar) ?? AVATARS[0];
           const isLocal = player.id === localId;
           const isNearby = distanceBetween(localPosition, player.position) <= CHAT_RADIUS;
+          const bodyY = player.action === "stand" ? 0.75 : player.action === "sit" ? 0.54 : 0.35;
+          const bodyScaleY = player.action === "stand" ? 1 : player.action === "sit" ? 0.62 : 0.45;
+          const headY = player.action === "stand" ? 1.5 : player.action === "sit" ? 1.02 : 0.46;
+          const rotationZ = player.action === "lay" ? Math.PI / 2 : 0;
+          const uiHeight = player.action === "lay" ? 1.46 : 2.1;
 
           return (
             <group key={player.id} position={[player.position.x, 0, player.position.z]}>
-              <mesh castShadow position={[0, 0.75, 0]}>
-                <capsuleGeometry args={[0.28, 0.5, 8, 16]} />
-                <meshStandardMaterial color={avatar.primary} />
-              </mesh>
-              <mesh castShadow position={[0, 1.5, 0]}>
-                <sphereGeometry args={[0.24, 32, 32]} />
-                <meshStandardMaterial color={avatar.secondary} />
-              </mesh>
-              <mesh castShadow position={[0, 0.95, 0.28]}>
-                <boxGeometry args={[0.15, 0.15, 0.15]} />
-                <meshStandardMaterial color={avatar.accent} />
-              </mesh>
+              <group rotation={[0, 0, rotationZ]}>
+                <mesh castShadow position={[0, bodyY, 0]} scale={[1, bodyScaleY, 1]}>
+                  <capsuleGeometry args={[0.28, 0.5, 8, 16]} />
+                  <meshStandardMaterial color={avatar.primary} />
+                </mesh>
+                <mesh castShadow position={[0, headY, 0]}>
+                  <sphereGeometry args={[0.24, 32, 32]} />
+                  <meshStandardMaterial color={avatar.secondary} />
+                </mesh>
+                <mesh castShadow position={[0, bodyY + 0.2, 0.28]}>
+                  <boxGeometry args={[0.15, 0.15, 0.15]} />
+                  <meshStandardMaterial color={avatar.accent} />
+                </mesh>
+              </group>
               {isLocal ? (
                 <mesh position={[0, 0.06, 0]} rotation={[-Math.PI / 2, 0, 0]}>
                   <ringGeometry args={[0.38, 0.5, 40]} />
                   <meshBasicMaterial color="#f8fafc" transparent opacity={0.9} />
                 </mesh>
               ) : null}
-              <Html center position={[0, 2.1, 0]}>
+              <Html center position={[0, uiHeight, 0]}>
                 <div className={styles.avatarUi}>
                   <div className={styles.namePlate}>
                     {player.name}
