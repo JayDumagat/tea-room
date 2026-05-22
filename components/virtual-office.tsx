@@ -63,6 +63,7 @@ const ROOM_ID = "main";
 const PRESENCE_API_PATH = "/api/presence";
 const CHAT_RADIUS = 3.3;
 const HEARTBEAT_MS = 140;
+const PRESENCE_POLL_MS = 220;
 const MOVE_SPEED = 4;
 const ROOM_LIMIT = 12;
 const SPAWN_POINTS: Position[] = [
@@ -255,7 +256,8 @@ export default function VirtualOffice() {
 
   useEffect(() => {
     refreshPeers();
-    const interval = window.setInterval(refreshPeers, HEARTBEAT_MS);
+    // Poll slightly slower than heartbeat updates to reduce API load while keeping quick peer visibility.
+    const interval = window.setInterval(refreshPeers, PRESENCE_POLL_MS);
 
     return () => {
       window.clearInterval(interval);
