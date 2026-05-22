@@ -170,35 +170,60 @@ export default function VirtualOffice() {
 
   const refreshPeers = useCallback(() => {
     void (async () => {
-      const search = new URLSearchParams({ room: ROOM_ID });
-      const response = await fetch(`${PRESENCE_API_PATH}?${search.toString()}`, { cache: "no-store" });
+      try {
+        const search = new URLSearchParams({ room: ROOM_ID });
+        const response = await fetch(`${PRESENCE_API_PATH}?${search.toString()}`, { cache: "no-store" });
 
-      if (!response.ok) {
-        return;
-      }
+        if (!response.ok) {
+          return;
+        }
 
-      const payload = (await response.json()) as { players: Presence[] };
-      setPeers(payload.players.filter((presence) => presence.id !== sessionId));
+        const payload = (await response.json()) as { players: Presence[] };
+        setPeers(payload.players.filter((presence) => presence.id !== sessionId));
+      } catch {}
     })();
   }, [sessionId]);
 
   const updatePresence = useCallback(
     (nextProfile: Profile, nextPosition: Position, nextMessage: string, nextAction: ActionState) => {
       void (async () => {
+        try {
+          const response = await fetch(PRESENCE_API_PATH, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              room: ROOM_ID,
+              presence: {
+                id: sessionId,
+                name: nextProfile.name,
+                avatar: nextProfile.avatar,
+                message: nextMessage,
+                action: nextAction,
+                position: nextPosition,
+              },
+            }),
+          });
+
+          if (!response.ok) {
+            return;
+          }
+
+          const payload = (await response.json()) as { players: Presence[] };
+          setPeers(payload.players.filter((presence) => presence.id !== sessionId));
+        } catch {}
+      })();
+    },
+    [sessionId],
+  );
+
+  const removePresence = useCallback(() => {
+    void (async () => {
+      try {
         const response = await fetch(PRESENCE_API_PATH, {
-          method: "POST",
+          method: "DELETE",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            room: ROOM_ID,
-            presence: {
-              id: sessionId,
-              name: nextProfile.name,
-              avatar: nextProfile.avatar,
-              message: nextMessage,
-              action: nextAction,
-              position: nextPosition,
-            },
-          }),
+          body: JSON.stringify({ room: ROOM_ID, id: sessionId }),
+          keepalive: true,
         });
 
         if (!response.ok) {
@@ -207,26 +232,7 @@ export default function VirtualOffice() {
 
         const payload = (await response.json()) as { players: Presence[] };
         setPeers(payload.players.filter((presence) => presence.id !== sessionId));
-      })();
-    },
-    [sessionId],
-  );
-
-  const removePresence = useCallback(() => {
-    void (async () => {
-      const response = await fetch(PRESENCE_API_PATH, {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ room: ROOM_ID, id: sessionId }),
-        keepalive: true,
-      });
-
-      if (!response.ok) {
-        return;
-      }
-
-      const payload = (await response.json()) as { players: Presence[] };
-      setPeers(payload.players.filter((presence) => presence.id !== sessionId));
+      } catch {}
     })();
   }, [sessionId]);
 
