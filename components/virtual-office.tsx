@@ -65,10 +65,10 @@ const CHAT_RADIUS = 3.3;
 const HEARTBEAT_MS = 140;
 const PRESENCE_POLL_IDLE_MS = 500;
 const PRESENCE_POLL_ACTIVE_MS = 1400;
-const LEAVE_WAVE_DURATION_MS = 1400;
+const LEAVE_WAVE_DURATION_MS = PRESENCE_POLL_ACTIVE_MS;
 const MOVE_SPEED = 6.6;
-const MOVE_ACCELERATION = 16;
-const MOVE_DECELERATION = 14;
+const MOVE_ACCELERATION_RATE = 16;
+const MOVE_DECELERATION_RATE = 14;
 const ROOM_LIMIT = 12;
 const SPAWN_POINTS: Position[] = [
   { x: -9, z: 6 },
@@ -417,7 +417,7 @@ export default function VirtualOffice() {
       const velocityZ = velocityZRef.current;
       const targetX = horizontalIntent * MOVE_SPEED;
       const targetZ = verticalIntent * MOVE_SPEED;
-      const easing = Math.min(1, delta * (hasIntent ? MOVE_ACCELERATION : MOVE_DECELERATION));
+      const easing = Math.min(1, delta * (hasIntent ? MOVE_ACCELERATION_RATE : MOVE_DECELERATION_RATE));
       let nextVelocityX = velocityX + (targetX - velocityX) * easing;
       let nextVelocityZ = velocityZ + (targetZ - velocityZ) * easing;
 
@@ -464,6 +464,7 @@ export default function VirtualOffice() {
 
       if (removePresenceTimeoutRef.current) {
         window.clearTimeout(removePresenceTimeoutRef.current);
+        removePresenceTimeoutRef.current = null;
       }
     };
   }, []);
@@ -480,6 +481,7 @@ export default function VirtualOffice() {
     : null;
   const everyone = localPresence ? [localPresence, ...peers] : peers;
   const nearbyPeers = peers.filter((peer) => distanceBetween(peer.position, position) <= CHAT_RADIUS);
+  const hasMessageContent = Boolean(messageInput.trim());
 
   const handleJoin = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -537,10 +539,12 @@ export default function VirtualOffice() {
 
       if (removePresenceTimeoutRef.current) {
         window.clearTimeout(removePresenceTimeoutRef.current);
+        removePresenceTimeoutRef.current = null;
       }
 
       removePresenceTimeoutRef.current = window.setTimeout(() => {
         removePresence();
+        removePresenceTimeoutRef.current = null;
       }, LEAVE_WAVE_DURATION_MS);
     }
 
@@ -665,7 +669,7 @@ export default function VirtualOffice() {
           <OfficeScene localId={sessionId} localPosition={position} players={everyone} roomLimit={ROOM_LIMIT} />
           <form
             className={`${styles.chatOverlay} ${
-              isChatFocused || Boolean(messageInput.trim()) ? styles.chatOverlayTyping : ""
+              isChatFocused || hasMessageContent ? styles.chatOverlayTyping : ""
             }`}
             onSubmit={handleSendMessage}
           >
@@ -688,11 +692,9 @@ export default function VirtualOffice() {
             <div className={styles.typingStatus}>
               <span
                 aria-hidden
-                className={`${styles.typingDot} ${
-                  isChatFocused || Boolean(messageInput.trim()) ? styles.typingDotActive : ""
-                }`}
+                className={`${styles.typingDot} ${isChatFocused || hasMessageContent ? styles.typingDotActive : ""}`}
               />
-              <span>{isChatFocused || Boolean(messageInput.trim()) ? "Typing..." : "Ready to chat"}</span>
+              <span>{isChatFocused || hasMessageContent ? "Typing..." : "Ready to chat"}</span>
             </div>
             <button className={styles.secondaryButton} disabled={!profile} type="submit">
               Post bubble

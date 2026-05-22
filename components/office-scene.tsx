@@ -54,11 +54,14 @@ const AVATARS: AvatarStyle[] = [
 const CHAT_RADIUS = 3.3;
 const CAMERA_DEAD_ZONE_X = 3.8;
 const CAMERA_DEAD_ZONE_Z = 2.6;
+// Tuned alongside local movement speed for responsive follow without jitter.
 const CAMERA_FOLLOW_SPEED = 5.6;
 const CAMERA_RESPAWN_THRESHOLD = 3.5;
 const CAMERA_BOUNDARY_OFFSET = 1.2;
 const CAMERA_HEIGHT = 8.5;
 const CAMERA_Z_OFFSET = 7.5;
+const HEAD_BOB_FREQUENCY = 3;
+const HEAD_BOB_STRENGTH = 0.015;
 const HEAD_WAVE_LOOK_FREQUENCY = 4;
 const HEAD_WAVE_LOOK_STRENGTH = 0.3;
 const WAVE_ARM_BASE_ROTATION = 0.9;
@@ -225,7 +228,7 @@ function AnimalCoworker({
 
   useFrame(({ clock }) => {
     const t = clock.elapsedTime;
-    const bob = isLaying ? 0 : Math.sin(t * 3) * 0.015;
+    const bob = isLaying ? 0 : Math.sin(t * HEAD_BOB_FREQUENCY) * HEAD_BOB_STRENGTH;
 
     if (headRef.current) {
       headRef.current.position.y = headY + bob;
