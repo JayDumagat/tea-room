@@ -19,7 +19,7 @@ type Profile = {
 
 type Presence = Profile & {
   id: string;
-  action: ActionState;
+  action?: ActionState;
   message: string;
   position: Position;
 };

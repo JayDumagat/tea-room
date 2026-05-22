@@ -17,7 +17,7 @@ type Presence = {
   id: string;
   name: string;
   avatar: AvatarKey;
-  action: ActionState;
+  action?: ActionState;
   message: string;
   position: Position;
 };
@@ -219,11 +219,12 @@ export default function OfficeScene({
           const avatar = AVATARS.find(({ id }) => id === player.avatar) ?? AVATARS[0];
           const isLocal = player.id === localId;
           const isNearby = distanceBetween(localPosition, player.position) <= CHAT_RADIUS;
-          const bodyY = player.action === "stand" ? 0.75 : player.action === "sit" ? 0.54 : 0.35;
-          const bodyScaleY = player.action === "stand" ? 1 : player.action === "sit" ? 0.62 : 0.45;
-          const headY = player.action === "stand" ? 1.5 : player.action === "sit" ? 1.02 : 0.46;
-          const rotationZ = player.action === "lay" ? Math.PI / 2 : 0;
-          const uiHeight = player.action === "lay" ? 1.46 : 2.1;
+          const action = player.action ?? "stand";
+          const bodyY = action === "stand" ? 0.75 : action === "sit" ? 0.54 : 0.35;
+          const bodyScaleY = action === "stand" ? 1 : action === "sit" ? 0.62 : 0.45;
+          const headY = action === "stand" ? 1.5 : action === "sit" ? 1.02 : 0.46;
+          const rotationZ = action === "lay" ? Math.PI / 2 : 0;
+          const uiHeight = action === "lay" ? 1.46 : 2.1;
 
           return (
             <group key={player.id} position={[player.position.x, 0, player.position.z]}>
