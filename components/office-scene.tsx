@@ -53,6 +53,10 @@ const AVATARS: AvatarStyle[] = [
 const CHAT_RADIUS = 3.3;
 const CAMERA_DEAD_ZONE = 2.2;
 const CAMERA_FOLLOW_SPEED = 5;
+const CAMERA_RESPAWN_THRESHOLD = 3.5;
+const CAMERA_BOUNDARY_OFFSET = 1.2;
+const CAMERA_HEIGHT = 8.5;
+const CAMERA_Z_OFFSET = 7.5;
 
 function clamp(value: number, minimum: number, maximum: number) {
   return Math.min(Math.max(value, minimum), maximum);
@@ -156,7 +160,7 @@ function FollowCamera({ localPosition, roomLimit }: { localPosition: Position; r
 
   useEffect(() => {
     const previous = previousLocalRef.current;
-    if (distanceBetween(previous, localPosition) > 3.5) {
+    if (distanceBetween(previous, localPosition) > CAMERA_RESPAWN_THRESHOLD) {
       focusRef.current = { x: localPosition.x, z: localPosition.z };
     }
     previousLocalRef.current = localPosition;
@@ -175,13 +179,13 @@ function FollowCamera({ localPosition, roomLimit }: { localPosition: Position; r
       focus.z = localPosition.z - Math.sign(deltaZ) * CAMERA_DEAD_ZONE;
     }
 
-    focus.x = clamp(focus.x, -roomLimit + 1.2, roomLimit - 1.2);
-    focus.z = clamp(focus.z, -roomLimit + 1.2, roomLimit - 1.2);
+    focus.x = clamp(focus.x, -roomLimit + CAMERA_BOUNDARY_OFFSET, roomLimit - CAMERA_BOUNDARY_OFFSET);
+    focus.z = clamp(focus.z, -roomLimit + CAMERA_BOUNDARY_OFFSET, roomLimit - CAMERA_BOUNDARY_OFFSET);
 
     const easing = Math.min(1, delta * CAMERA_FOLLOW_SPEED);
     camera.position.x += (focus.x - camera.position.x) * easing;
-    camera.position.y += (8.5 - camera.position.y) * easing;
-    camera.position.z += (focus.z + 7.5 - camera.position.z) * easing;
+    camera.position.y += (CAMERA_HEIGHT - camera.position.y) * easing;
+    camera.position.z += (focus.z + CAMERA_Z_OFFSET - camera.position.z) * easing;
     camera.lookAt(focus.x, 0, focus.z);
   });
 
@@ -200,7 +204,7 @@ export default function OfficeScene({
   roomLimit: number;
 }) {
   return (
-    <Canvas camera={{ position: [0, 8.5, 7.5], fov: 42 }} shadows>
+    <Canvas camera={{ position: [0, CAMERA_HEIGHT, CAMERA_Z_OFFSET], fov: 42 }} shadows>
       <FollowCamera localPosition={localPosition} roomLimit={roomLimit} />
       <color attach="background" args={["#0f172a"]} />
       <ambientLight intensity={1.4} />
