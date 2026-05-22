@@ -62,8 +62,9 @@ const SESSION_KEY = "tea-room-session";
 const ROOM_ID = "main";
 const PRESENCE_API_PATH = "/api/presence";
 const CHAT_RADIUS = 3.3;
-const HEARTBEAT_MS = 350;
-const MOVE_SPEED = 2.8;
+const HEARTBEAT_MS = 140;
+const PRESENCE_POLL_MS = 200;
+const MOVE_SPEED = 4;
 const ROOM_LIMIT = 12;
 const SPAWN_POINTS: Position[] = [
   { x: -9, z: 6 },
@@ -255,7 +256,7 @@ export default function VirtualOffice() {
 
   useEffect(() => {
     refreshPeers();
-    const interval = window.setInterval(refreshPeers, HEARTBEAT_MS * 2);
+    const interval = window.setInterval(refreshPeers, PRESENCE_POLL_MS);
 
     return () => {
       window.clearInterval(interval);
