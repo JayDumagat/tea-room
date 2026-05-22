@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { FormEvent, useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
+import { FormEvent, useCallback, useMemo, useEffect, useRef, useState } from "react";
 import styles from "./virtual-office.module.css";
 
 type AvatarKey = "mint" | "sunset" | "violet";
@@ -58,6 +58,7 @@ const AVATARS: AvatarStyle[] = [
 
 const STORAGE_KEY = "tea-room-presence";
 const PROFILE_KEY = "tea-room-profile";
+const SESSION_KEY = "tea-room-session";
 const CHAT_RADIUS = 3.3;
 const PRESENCE_TTL_MS = 12000;
 const HEARTBEAT_MS = 350;
@@ -161,8 +162,24 @@ function getStoredProfile() {
   }
 }
 
+function getSessionId() {
+  if (typeof window === "undefined") {
+    return "server-session";
+  }
+
+  const existingSessionId = window.sessionStorage.getItem(SESSION_KEY);
+
+  if (existingSessionId) {
+    return existingSessionId;
+  }
+
+  const nextSessionId = window.crypto?.randomUUID() ?? `session-${window.performance.now().toString(36)}`;
+  window.sessionStorage.setItem(SESSION_KEY, nextSessionId);
+  return nextSessionId;
+}
+
 export default function VirtualOffice() {
-  const sessionId = useId().replace(/:/g, "");
+  const [sessionId] = useState(getSessionId);
   const initialProfile = useMemo(() => getStoredProfile(), []);
   const [draftName, setDraftName] = useState(initialProfile.name);
   const [draftAvatar, setDraftAvatar] = useState<AvatarKey>(initialProfile.avatar);
