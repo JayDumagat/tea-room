@@ -59,6 +59,11 @@ const CAMERA_RESPAWN_THRESHOLD = 3.5;
 const CAMERA_BOUNDARY_OFFSET = 1.2;
 const CAMERA_HEIGHT = 8.5;
 const CAMERA_Z_OFFSET = 7.5;
+const HEAD_WAVE_LOOK_FREQUENCY = 4;
+const HEAD_WAVE_LOOK_STRENGTH = 0.3;
+const WAVE_ARM_BASE_ROTATION = 0.9;
+const WAVE_ARM_SWING_FREQUENCY = 11;
+const WAVE_ARM_SWING_STRENGTH = 0.45;
 
 function clamp(value: number, minimum: number, maximum: number) {
   return Math.min(Math.max(value, minimum), maximum);
@@ -224,11 +229,17 @@ function AnimalCoworker({
 
     if (headRef.current) {
       headRef.current.position.y = headY + bob;
-      headRef.current.rotation.y = isWaving ? Math.sin(t * 4) * 0.3 : 0;
+      headRef.current.rotation.y = isWaving
+        ? Math.sin(t * HEAD_WAVE_LOOK_FREQUENCY) * HEAD_WAVE_LOOK_STRENGTH
+        : 0;
     }
 
     if (rightArmRef.current) {
-      rightArmRef.current.rotation.z = isWaving ? 0.9 + Math.sin(t * 11) * 0.45 : isLaying ? 0.4 : 0.08;
+      rightArmRef.current.rotation.z = isWaving
+        ? WAVE_ARM_BASE_ROTATION + Math.sin(t * WAVE_ARM_SWING_FREQUENCY) * WAVE_ARM_SWING_STRENGTH
+        : isLaying
+          ? 0.4
+          : 0.08;
       rightArmRef.current.rotation.x = isWaving ? -0.4 : 0;
     }
 

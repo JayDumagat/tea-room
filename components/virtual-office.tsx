@@ -65,6 +65,7 @@ const CHAT_RADIUS = 3.3;
 const HEARTBEAT_MS = 140;
 const PRESENCE_POLL_IDLE_MS = 500;
 const PRESENCE_POLL_ACTIVE_MS = 1400;
+const LEAVE_WAVE_DURATION_MS = 1400;
 const MOVE_SPEED = 6.6;
 const MOVE_ACCELERATION = 16;
 const MOVE_DECELERATION = 14;
@@ -160,7 +161,8 @@ export default function VirtualOffice() {
   const [peers, setPeers] = useState<Presence[]>([]);
   const [isChatFocused, setIsChatFocused] = useState(false);
   const pressedKeys = useRef(new Set<string>());
-  const velocityRef = useRef({ x: 0, z: 0 });
+  const velocityXRef = useRef(0);
+  const velocityZRef = useRef(0);
   const removePresenceTimeoutRef = useRef<number | null>(null);
   const heartbeatRef = useRef<{
     profile: Profile | null;
@@ -411,25 +413,29 @@ export default function VirtualOffice() {
         verticalIntent /= magnitude;
       }
 
-      const velocity = velocityRef.current;
+      const velocityX = velocityXRef.current;
+      const velocityZ = velocityZRef.current;
       const targetX = horizontalIntent * MOVE_SPEED;
       const targetZ = verticalIntent * MOVE_SPEED;
       const easing = Math.min(1, delta * (hasIntent ? MOVE_ACCELERATION : MOVE_DECELERATION));
-      velocity.x += (targetX - velocity.x) * easing;
-      velocity.z += (targetZ - velocity.z) * easing;
+      let nextVelocityX = velocityX + (targetX - velocityX) * easing;
+      let nextVelocityZ = velocityZ + (targetZ - velocityZ) * easing;
 
-      if (Math.abs(velocity.x) < 0.001) {
-        velocity.x = 0;
+      if (Math.abs(nextVelocityX) < 0.001) {
+        nextVelocityX = 0;
       }
 
-      if (Math.abs(velocity.z) < 0.001) {
-        velocity.z = 0;
+      if (Math.abs(nextVelocityZ) < 0.001) {
+        nextVelocityZ = 0;
       }
 
-      if (velocity.x !== 0 || velocity.z !== 0) {
+      velocityXRef.current = nextVelocityX;
+      velocityZRef.current = nextVelocityZ;
+
+      if (nextVelocityX !== 0 || nextVelocityZ !== 0) {
         setPosition((currentPosition) => ({
-          x: clamp(currentPosition.x + velocity.x * delta, -ROOM_LIMIT, ROOM_LIMIT),
-          z: clamp(currentPosition.z + velocity.z * delta, -ROOM_LIMIT, ROOM_LIMIT),
+          x: clamp(currentPosition.x + nextVelocityX * delta, -ROOM_LIMIT, ROOM_LIMIT),
+          z: clamp(currentPosition.z + nextVelocityZ * delta, -ROOM_LIMIT, ROOM_LIMIT),
         }));
       }
 
@@ -445,7 +451,8 @@ export default function VirtualOffice() {
       window.removeEventListener("keyup", handleKeyUp);
       window.cancelAnimationFrame(animationFrame);
       activeKeys.clear();
-      velocityRef.current = { x: 0, z: 0 };
+      velocityXRef.current = 0;
+      velocityZRef.current = 0;
     };
   }, [handleActionChange, profile]);
 
@@ -534,7 +541,7 @@ export default function VirtualOffice() {
 
       removePresenceTimeoutRef.current = window.setTimeout(() => {
         removePresence();
-      }, 1400);
+      }, LEAVE_WAVE_DURATION_MS);
     }
 
     setProfile(null);
