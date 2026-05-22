@@ -3,10 +3,11 @@
 import { Html } from "@react-three/drei";
 import { Canvas, useFrame } from "@react-three/fiber";
 import { useEffect, useRef } from "react";
+import type { Group } from "three";
 import styles from "./virtual-office.module.css";
 
 type AvatarKey = "mint" | "sunset" | "violet";
-type ActionState = "stand" | "sit" | "lay";
+type ActionState = "stand" | "sit" | "lay" | "wave";
 
 type Position = {
   x: number;
@@ -53,7 +54,7 @@ const AVATARS: AvatarStyle[] = [
 const CHAT_RADIUS = 3.3;
 const CAMERA_DEAD_ZONE_X = 3.8;
 const CAMERA_DEAD_ZONE_Z = 2.6;
-const CAMERA_FOLLOW_SPEED = 3.2;
+const CAMERA_FOLLOW_SPEED = 5.6;
 const CAMERA_RESPAWN_THRESHOLD = 3.5;
 const CAMERA_BOUNDARY_OFFSET = 1.2;
 const CAMERA_HEIGHT = 8.5;
@@ -193,6 +194,142 @@ function FollowCamera({ localPosition, roomLimit }: { localPosition: Position; r
   return null;
 }
 
+function AnimalCoworker({
+  avatar,
+  isLocal,
+  isNearby,
+  player,
+}: {
+  avatar: AvatarStyle;
+  isLocal: boolean;
+  isNearby: boolean;
+  player: Presence;
+}) {
+  const rightArmRef = useRef<Group>(null);
+  const leftArmRef = useRef<Group>(null);
+  const headRef = useRef<Group>(null);
+  const action = player.action ?? "stand";
+  const isLaying = action === "lay";
+  const isSitting = action === "sit";
+  const isWaving = action === "wave";
+  const bodyY = isLaying ? 0.46 : isSitting ? 0.62 : 0.78;
+  const bodyScaleY = isLaying ? 0.5 : isSitting ? 0.72 : 1;
+  const headY = isLaying ? 0.55 : isSitting ? 1.08 : 1.52;
+  const legY = isLaying ? 0.24 : 0.42;
+  const uiHeight = isLaying ? 1.46 : 2.25;
+
+  useFrame(({ clock }) => {
+    const t = clock.elapsedTime;
+    const bob = isLaying ? 0 : Math.sin(t * 3) * 0.015;
+
+    if (headRef.current) {
+      headRef.current.position.y = headY + bob;
+      headRef.current.rotation.y = isWaving ? Math.sin(t * 4) * 0.3 : 0;
+    }
+
+    if (rightArmRef.current) {
+      rightArmRef.current.rotation.z = isWaving ? 0.9 + Math.sin(t * 11) * 0.45 : isLaying ? 0.4 : 0.08;
+      rightArmRef.current.rotation.x = isWaving ? -0.4 : 0;
+    }
+
+    if (leftArmRef.current) {
+      leftArmRef.current.rotation.z = isLaying ? -0.35 : -0.08;
+      leftArmRef.current.rotation.x = 0;
+    }
+  });
+
+  return (
+    <group position={[player.position.x, 0, player.position.z]}>
+      <group rotation={[0, 0, isLaying ? Math.PI / 2 : 0]}>
+        <mesh castShadow position={[0, bodyY, 0]} scale={[1, bodyScaleY, 1]}>
+          <capsuleGeometry args={[0.3, 0.58, 10, 24]} />
+          <meshStandardMaterial color="#0f172a" roughness={0.5} metalness={0.18} />
+        </mesh>
+        <mesh castShadow position={[0, bodyY + 0.1, 0.22]} scale={[1, bodyScaleY, 1]}>
+          <capsuleGeometry args={[0.24, 0.4, 8, 20]} />
+          <meshStandardMaterial color={avatar.primary} roughness={0.62} />
+        </mesh>
+
+        <group ref={headRef}>
+          <mesh castShadow position={[0, 0, 0]}>
+            <sphereGeometry args={[0.25, 34, 34]} />
+            <meshStandardMaterial color={avatar.secondary} />
+          </mesh>
+          <mesh castShadow position={[-0.12, 0.2, -0.04]} rotation={[0.1, 0.2, 0.25]}>
+            <coneGeometry args={[0.07, 0.2, 14]} />
+            <meshStandardMaterial color={avatar.secondary} />
+          </mesh>
+          <mesh castShadow position={[0.12, 0.2, -0.04]} rotation={[0.1, -0.2, -0.25]}>
+            <coneGeometry args={[0.07, 0.2, 14]} />
+            <meshStandardMaterial color={avatar.secondary} />
+          </mesh>
+          <mesh castShadow position={[0, -0.04, 0.2]} scale={[1, 0.8, 1]}>
+            <sphereGeometry args={[0.11, 18, 18]} />
+            <meshStandardMaterial color="#f8fafc" />
+          </mesh>
+          <mesh castShadow position={[-0.08, 0.03, 0.18]}>
+            <sphereGeometry args={[0.02, 10, 10]} />
+            <meshStandardMaterial color={avatar.accent} />
+          </mesh>
+          <mesh castShadow position={[0.08, 0.03, 0.18]}>
+            <sphereGeometry args={[0.02, 10, 10]} />
+            <meshStandardMaterial color={avatar.accent} />
+          </mesh>
+        </group>
+
+        <group ref={leftArmRef} position={[-0.34, bodyY + 0.16, 0.02]}>
+          <mesh castShadow position={[0, -0.22, 0]}>
+            <capsuleGeometry args={[0.07, 0.28, 8, 12]} />
+            <meshStandardMaterial color="#111827" />
+          </mesh>
+          <mesh castShadow position={[0, -0.43, 0]}>
+            <sphereGeometry args={[0.08, 16, 16]} />
+            <meshStandardMaterial color={avatar.secondary} />
+          </mesh>
+        </group>
+        <group ref={rightArmRef} position={[0.34, bodyY + 0.16, 0.02]}>
+          <mesh castShadow position={[0, -0.22, 0]}>
+            <capsuleGeometry args={[0.07, 0.28, 8, 12]} />
+            <meshStandardMaterial color="#111827" />
+          </mesh>
+          <mesh castShadow position={[0, -0.43, 0]}>
+            <sphereGeometry args={[0.08, 16, 16]} />
+            <meshStandardMaterial color={avatar.secondary} />
+          </mesh>
+        </group>
+
+        <mesh castShadow position={[-0.15, legY, 0]}>
+          <capsuleGeometry args={[0.09, 0.26, 8, 12]} />
+          <meshStandardMaterial color="#020617" />
+        </mesh>
+        <mesh castShadow position={[0.15, legY, 0]}>
+          <capsuleGeometry args={[0.09, 0.26, 8, 12]} />
+          <meshStandardMaterial color="#020617" />
+        </mesh>
+        <mesh castShadow position={[0, bodyY + 0.1, 0.29]}>
+          <boxGeometry args={[0.06, 0.35, 0.04]} />
+          <meshStandardMaterial color="#f43f5e" emissive="#3f0918" />
+        </mesh>
+      </group>
+      {isLocal ? (
+        <mesh position={[0, 0.06, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+          <ringGeometry args={[0.38, 0.5, 40]} />
+          <meshBasicMaterial color="#f8fafc" transparent opacity={0.9} />
+        </mesh>
+      ) : null}
+      <Html center position={[0, uiHeight, 0]}>
+        <div className={styles.avatarUi}>
+          <div className={styles.namePlate}>
+            {player.name}
+            {isLocal ? " (you)" : ""}
+          </div>
+          {player.message && isNearby ? <div className={styles.chatBubble}>{player.message}</div> : null}
+        </div>
+      </Html>
+    </group>
+  );
+}
+
 export default function OfficeScene({
   players,
   localId,
@@ -231,49 +368,14 @@ export default function OfficeScene({
 
         {players.map((player) => {
           const avatar = AVATARS.find(({ id }) => id === player.avatar) ?? AVATARS[0];
-          const isLocal = player.id === localId;
-          const isNearby = distanceBetween(localPosition, player.position) <= CHAT_RADIUS;
-          const action = player.action ?? "stand";
-          const bodyY = action === "stand" ? 0.75 : action === "sit" ? 0.54 : 0.35;
-          const bodyScaleY = action === "stand" ? 1 : action === "sit" ? 0.62 : 0.45;
-          const headY = action === "stand" ? 1.5 : action === "sit" ? 1.02 : 0.46;
-          const rotationZ = action === "lay" ? Math.PI / 2 : 0;
-          const uiHeight = action === "lay" ? 1.46 : 2.1;
-
           return (
-            <group key={player.id} position={[player.position.x, 0, player.position.z]}>
-              <group rotation={[0, 0, rotationZ]}>
-                <mesh castShadow position={[0, bodyY, 0]} scale={[1, bodyScaleY, 1]}>
-                  <capsuleGeometry args={[0.28, 0.5, 8, 16]} />
-                  <meshStandardMaterial color={avatar.primary} />
-                </mesh>
-                <mesh castShadow position={[0, headY, 0]}>
-                  <sphereGeometry args={[0.24, 32, 32]} />
-                  <meshStandardMaterial color={avatar.secondary} />
-                </mesh>
-                <mesh castShadow position={[0, bodyY + 0.2, 0.28]}>
-                  <boxGeometry args={[0.15, 0.15, 0.15]} />
-                  <meshStandardMaterial color={avatar.accent} />
-                </mesh>
-              </group>
-              {isLocal ? (
-                <mesh position={[0, 0.06, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-                  <ringGeometry args={[0.38, 0.5, 40]} />
-                  <meshBasicMaterial color="#f8fafc" transparent opacity={0.9} />
-                </mesh>
-              ) : null}
-              <Html center position={[0, uiHeight, 0]}>
-                <div className={styles.avatarUi}>
-                  <div className={styles.namePlate}>
-                    {player.name}
-                    {isLocal ? " (you)" : ""}
-                  </div>
-                  {player.message && isNearby ? (
-                    <div className={styles.chatBubble}>{player.message}</div>
-                  ) : null}
-                </div>
-              </Html>
-            </group>
+            <AnimalCoworker
+              key={player.id}
+              avatar={avatar}
+              isLocal={player.id === localId}
+              isNearby={distanceBetween(localPosition, player.position) <= CHAT_RADIUS}
+              player={player}
+            />
           );
         })}
       </group>

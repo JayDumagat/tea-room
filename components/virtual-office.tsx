@@ -5,7 +5,7 @@ import { FormEvent, useCallback, useMemo, useEffect, useRef, useState } from "re
 import styles from "./virtual-office.module.css";
 
 type AvatarKey = "mint" | "sunset" | "violet";
-type ActionState = "stand" | "sit" | "lay";
+type ActionState = "stand" | "sit" | "lay" | "wave";
 
 type Position = {
   x: number;
@@ -65,7 +65,9 @@ const CHAT_RADIUS = 3.3;
 const HEARTBEAT_MS = 140;
 const PRESENCE_POLL_IDLE_MS = 500;
 const PRESENCE_POLL_ACTIVE_MS = 1400;
-const MOVE_SPEED = 4;
+const MOVE_SPEED = 6.6;
+const MOVE_ACCELERATION = 16;
+const MOVE_DECELERATION = 14;
 const ROOM_LIMIT = 12;
 const SPAWN_POINTS: Position[] = [
   { x: -9, z: 6 },
@@ -156,7 +158,10 @@ export default function VirtualOffice() {
   const [messageInput, setMessageInput] = useState("");
   const [message, setMessage] = useState("");
   const [peers, setPeers] = useState<Presence[]>([]);
+  const [isChatFocused, setIsChatFocused] = useState(false);
   const pressedKeys = useRef(new Set<string>());
+  const velocityRef = useRef({ x: 0, z: 0 });
+  const removePresenceTimeoutRef = useRef<number | null>(null);
   const heartbeatRef = useRef<{
     profile: Profile | null;
     position: Position;
@@ -238,6 +243,32 @@ export default function VirtualOffice() {
     })();
   }, [sessionId]);
 
+  const sendLeaveWave = useCallback(
+    (nextProfile: Profile, nextPosition: Position) => {
+      void (async () => {
+        try {
+          await fetch(PRESENCE_API_PATH, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              room: ROOM_ID,
+              presence: {
+                id: sessionId,
+                name: nextProfile.name,
+                avatar: nextProfile.avatar,
+                message: "👋",
+                action: "wave",
+                position: nextPosition,
+              },
+            }),
+            keepalive: true,
+          });
+        } catch {}
+      })();
+    },
+    [sessionId],
+  );
+
   const handleActionChange = useCallback(
     (nextAction: ActionState) => {
       setAction(nextAction);
@@ -285,7 +316,10 @@ export default function VirtualOffice() {
     tick();
     const interval = window.setInterval(tick, HEARTBEAT_MS);
     const handleBeforeUnload = () => {
-      removePresence();
+      const latest = heartbeatRef.current;
+      if (latest.profile) {
+        sendLeaveWave(latest.profile, latest.position);
+      }
     };
 
     window.addEventListener("beforeunload", handleBeforeUnload);
@@ -293,9 +327,12 @@ export default function VirtualOffice() {
     return () => {
       window.clearInterval(interval);
       window.removeEventListener("beforeunload", handleBeforeUnload);
-      removePresence();
+      const latest = heartbeatRef.current;
+      if (latest.profile) {
+        sendLeaveWave(latest.profile, latest.position);
+      }
     };
-  }, [profile, removePresence, updatePresence]);
+  }, [profile, sendLeaveWave, updatePresence]);
 
   useEffect(() => {
     if (!profile) {
@@ -348,29 +385,51 @@ export default function VirtualOffice() {
     const update = (now: number) => {
       const delta = (now - previous) / 1000;
       previous = now;
-      let horizontal = 0;
-      let vertical = 0;
+      let horizontalIntent = 0;
+      let verticalIntent = 0;
 
       if (activeKeys.has("ArrowLeft")) {
-        horizontal -= MOVE_SPEED * delta;
+        horizontalIntent -= 1;
       }
 
       if (activeKeys.has("ArrowRight")) {
-        horizontal += MOVE_SPEED * delta;
+        horizontalIntent += 1;
       }
 
       if (activeKeys.has("ArrowUp")) {
-        vertical -= MOVE_SPEED * delta;
+        verticalIntent -= 1;
       }
 
       if (activeKeys.has("ArrowDown")) {
-        vertical += MOVE_SPEED * delta;
+        verticalIntent += 1;
       }
 
-      if (horizontal !== 0 || vertical !== 0) {
+      const hasIntent = horizontalIntent !== 0 || verticalIntent !== 0;
+      if (hasIntent) {
+        const magnitude = Math.hypot(horizontalIntent, verticalIntent) || 1;
+        horizontalIntent /= magnitude;
+        verticalIntent /= magnitude;
+      }
+
+      const velocity = velocityRef.current;
+      const targetX = horizontalIntent * MOVE_SPEED;
+      const targetZ = verticalIntent * MOVE_SPEED;
+      const easing = Math.min(1, delta * (hasIntent ? MOVE_ACCELERATION : MOVE_DECELERATION));
+      velocity.x += (targetX - velocity.x) * easing;
+      velocity.z += (targetZ - velocity.z) * easing;
+
+      if (Math.abs(velocity.x) < 0.001) {
+        velocity.x = 0;
+      }
+
+      if (Math.abs(velocity.z) < 0.001) {
+        velocity.z = 0;
+      }
+
+      if (velocity.x !== 0 || velocity.z !== 0) {
         setPosition((currentPosition) => ({
-          x: clamp(currentPosition.x + horizontal, -ROOM_LIMIT, ROOM_LIMIT),
-          z: clamp(currentPosition.z + vertical, -ROOM_LIMIT, ROOM_LIMIT),
+          x: clamp(currentPosition.x + velocity.x * delta, -ROOM_LIMIT, ROOM_LIMIT),
+          z: clamp(currentPosition.z + velocity.z * delta, -ROOM_LIMIT, ROOM_LIMIT),
         }));
       }
 
@@ -386,6 +445,7 @@ export default function VirtualOffice() {
       window.removeEventListener("keyup", handleKeyUp);
       window.cancelAnimationFrame(animationFrame);
       activeKeys.clear();
+      velocityRef.current = { x: 0, z: 0 };
     };
   }, [handleActionChange, profile]);
 
@@ -393,6 +453,10 @@ export default function VirtualOffice() {
     return () => {
       if (clearMessageTimeoutRef.current) {
         window.clearTimeout(clearMessageTimeoutRef.current);
+      }
+
+      if (removePresenceTimeoutRef.current) {
+        window.clearTimeout(removePresenceTimeoutRef.current);
       }
     };
   }, []);
@@ -461,7 +525,18 @@ export default function VirtualOffice() {
   };
 
   const handleResetProfile = () => {
-    removePresence();
+    if (profile) {
+      sendLeaveWave(profile, heartbeatRef.current.position);
+
+      if (removePresenceTimeoutRef.current) {
+        window.clearTimeout(removePresenceTimeoutRef.current);
+      }
+
+      removePresenceTimeoutRef.current = window.setTimeout(() => {
+        removePresence();
+      }, 1400);
+    }
+
     setProfile(null);
     setAction("stand");
     setMessage("");
@@ -543,26 +618,6 @@ export default function VirtualOffice() {
           </p>
         </div>
 
-        <form className={styles.card} onSubmit={handleSendMessage}>
-          <div className={styles.cardHeader}>
-            <h2>Send a chat bubble</h2>
-            <span>{profile ? "Visible only when close" : "Join the office first"}</span>
-          </div>
-          <label className={styles.field}>
-            <span>Message</span>
-            <input
-              disabled={!profile}
-              maxLength={80}
-              onChange={(event) => setMessageInput(event.target.value)}
-              placeholder="Say hello to nearby teammates"
-              value={messageInput}
-            />
-          </label>
-          <button className={styles.secondaryButton} disabled={!profile} type="submit">
-            Post bubble
-          </button>
-        </form>
-
         <div className={styles.card}>
           <div className={styles.cardHeader}>
             <h2>Avatar action</h2>
@@ -601,6 +656,41 @@ export default function VirtualOffice() {
         </div>
         <div className={styles.sceneViewport}>
           <OfficeScene localId={sessionId} localPosition={position} players={everyone} roomLimit={ROOM_LIMIT} />
+          <form
+            className={`${styles.chatOverlay} ${
+              isChatFocused || Boolean(messageInput.trim()) ? styles.chatOverlayTyping : ""
+            }`}
+            onSubmit={handleSendMessage}
+          >
+            <div className={styles.cardHeader}>
+              <h2>Chat</h2>
+              <span>{profile ? "Visible only when close" : "Join the office first"}</span>
+            </div>
+            <label className={styles.field}>
+              <span>Message</span>
+              <input
+                disabled={!profile}
+                maxLength={80}
+                onBlur={() => setIsChatFocused(false)}
+                onChange={(event) => setMessageInput(event.target.value)}
+                onFocus={() => setIsChatFocused(true)}
+                placeholder="Say hello to nearby teammates"
+                value={messageInput}
+              />
+            </label>
+            <div className={styles.typingStatus}>
+              <span
+                aria-hidden
+                className={`${styles.typingDot} ${
+                  isChatFocused || Boolean(messageInput.trim()) ? styles.typingDotActive : ""
+                }`}
+              />
+              <span>{isChatFocused || Boolean(messageInput.trim()) ? "Typing..." : "Ready to chat"}</span>
+            </div>
+            <button className={styles.secondaryButton} disabled={!profile} type="submit">
+              Post bubble
+            </button>
+          </form>
         </div>
       </section>
     </main>

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
 type AvatarKey = "mint" | "sunset" | "violet";
-type ActionState = "stand" | "sit" | "lay";
+type ActionState = "stand" | "sit" | "lay" | "wave";
 
 type Position = {
   x: number;
@@ -49,7 +49,10 @@ function normalizePresence(value: unknown): Presence | null {
   const candidate = value as Partial<Presence>;
   const avatar = candidate.avatar === "sunset" || candidate.avatar === "violet" ? candidate.avatar : "mint";
   const action =
-    candidate.action === "sit" || candidate.action === "lay" || candidate.action === "stand"
+    candidate.action === "sit" ||
+    candidate.action === "lay" ||
+    candidate.action === "stand" ||
+    candidate.action === "wave"
       ? candidate.action
       : "stand";
 
